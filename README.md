@@ -44,6 +44,7 @@ fn main() {
         .run();
 }
 
+// select sprite to draw
 fn animate_sprite_system(
     texture_atlases: Res<Assets<TextureAtlas>>,
     mut query: Query<(&mut Timer, &mut TextureAtlasSprite, &Handle<TextureAtlas>)>,
@@ -64,10 +65,10 @@ fn setup(
     let texture_handle = asset_server.load(SPRITE_PATH);
     let texture_atlas =  TextureAtlas::from_grid_with_padding(
         texture_handle, 
-        Vec2::new(24.0, 24.0),
-        23, 
-        4, 
-        Vec2::new(6f32,0f32));
+        Vec2::new(24.0, 24.0), // sprite dimensions
+        23, // number of columns
+        4, // number of rows 
+        Vec2::new(6f32,0f32)); // padding
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     commands
         .spawn(Camera2dComponents::default())
