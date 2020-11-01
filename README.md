@@ -132,3 +132,89 @@ fn main() {
         .run();
 }
 ```
+
+### animation
+```rust
+use bevy::prelude::*;
+
+const SPRITE_PATH: &str = "..\\res\\characters.png";
+
+struct AnimationDescription {
+    start: u32,
+    len: u32,
+}
+
+struct Animation {
+    description: AnimationDescription,
+    current_frame: u32,
+}
+
+impl Animation {
+    fn start(descr: AnimationDescription) -> Self {
+        Animation {
+            description: descr,
+            current_frame: 0,
+        }
+    }
+
+    fn next(&mut self) {
+        self.current_frame = (self.current_frame + 1) % self.description.len;
+    }
+
+    fn current_frame_idx(&self) -> u32 {
+        self.current_frame + self.description.start
+    }
+}
+
+// select sprite to draw
+fn animate_sprite_system(
+    mut query: Query<(
+        &mut TextureAtlasSprite,
+        &Animation
+    )>,
+) {
+    for (mut sprite, animation) in query.iter_mut() {
+        sprite.index = animation.current_frame_idx();
+    }
+}
+
+fn update_animation(timer: &Timer, mut animation: Mut<Animation>) {
+    if timer.finished {
+        animation.next();
+    }
+}
+
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+) {
+    let texture_handle = asset_server.load(SPRITE_PATH);
+    let texture_atlas = TextureAtlas::from_grid_with_padding(
+        texture_handle,
+        Vec2::new(24.0, 24.0), // sprite dimensions
+        23,                    // number of columns
+        4,                     // number of rows
+        Vec2::new(6f32, 0f32),
+    ); // padding
+    let texture_atlas_handle = texture_atlases.add(texture_atlas);
+    commands
+        .spawn(Camera2dComponents::default())
+        .spawn(SpriteSheetComponents {
+            texture_atlas: texture_atlas_handle,
+            transform: Transform::from_scale(Vec3::splat(6.0)),
+            ..Default::default()
+        })
+        .with(Timer::from_seconds(0.1, true))
+        .with(Animation::start(AnimationDescription { start: 1, len: 4 }));
+}
+
+fn main() {
+    App::build()
+        .add_default_plugins()
+        .add_startup_system(setup.system())
+        .add_system(animate_sprite_system.system())
+        .add_system(update_animation.system())
+        .run();
+}
+```
