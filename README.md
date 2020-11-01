@@ -218,3 +218,132 @@ fn main() {
         .run();
 }
 ```
+
+### control animation
+```rust
+use bevy::prelude::*;
+
+const SPRITE_PATH: &str = "..\\res\\characters.png";
+
+struct AnimationDescription {
+    start: u32,
+    len: u32,
+    duration: f32,
+}
+
+impl AnimationDescription {
+    fn stand() -> Self {
+        AnimationDescription {
+            start: 0,
+            len: 1,
+            duration: 1.0,
+        }
+    }
+
+    fn walk() -> Self {
+        AnimationDescription {
+            start: 0,
+            len: 4,
+            duration: 0.125,
+        }
+    }
+
+    fn run() -> Self {
+        AnimationDescription {
+            start: 14,
+            len: 4,
+            duration: 0.1,
+        }
+    }
+}
+
+struct Animation {
+    description: AnimationDescription,
+    current_frame: u32,
+    acc: f32,
+}
+
+impl Animation {
+    fn start(descr: AnimationDescription) -> Self {
+        Animation {
+            description: descr,
+            current_frame: 0,
+            acc: 0.0,
+        }
+    }
+
+    fn update(&mut self, dt: f32) {
+        let acc = dt + self.acc;
+        self.acc = if acc >= self.description.duration {
+            self.current_frame = (self.current_frame + 1) % self.description.len;
+            acc - self.description.duration
+        } else {
+            acc
+        }
+    }
+
+    fn current_frame_idx(&self) -> u32 {
+        self.current_frame + self.description.start
+    }
+}
+
+// select sprite to draw
+fn animate_sprite_system(mut query: Query<(&mut TextureAtlasSprite, &Animation)>) {
+    for (mut sprite, animation) in query.iter_mut() {
+        sprite.index = animation.current_frame_idx();
+    }
+}
+
+fn update_animation_res(time: Res<Time>, mut animation: Mut<Animation>) {
+    animation.update(time.delta_seconds);
+}
+
+fn keyboard_input_system(input: Res<Input<KeyCode>>, mut animation: Mut<Animation>) {
+    if input.just_pressed(KeyCode::A) {
+        *animation = Animation::start(AnimationDescription::walk());
+    } else if input.just_pressed(KeyCode::D) {
+        *animation = Animation::start(AnimationDescription::walk());
+    } else if input.just_pressed(KeyCode::Space) {
+        *animation = Animation::start(AnimationDescription::run());
+    }
+
+    if !input.pressed(KeyCode::A) && !input.pressed(KeyCode::D) && !input.pressed(KeyCode::Space) {
+        // stand around
+        *animation = Animation::start(AnimationDescription::stand());
+    }
+}
+
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+) {
+    let texture_handle = asset_server.load(SPRITE_PATH);
+    let texture_atlas = TextureAtlas::from_grid_with_padding(
+        texture_handle,
+        Vec2::new(24.0, 24.0), // sprite dimensions
+        23,                    // number of columns
+        4,                     // number of rows
+        Vec2::new(6f32, 0f32),
+    ); // padding
+    let texture_atlas_handle = texture_atlases.add(texture_atlas);
+    commands
+        .spawn(Camera2dComponents::default())
+        .spawn(SpriteSheetComponents {
+            texture_atlas: texture_atlas_handle,
+            transform: Transform::from_scale(Vec3::splat(6.0)),
+            ..Default::default()
+        })
+        .with(Animation::start(AnimationDescription::walk()));
+}
+
+fn main() {
+    App::build()
+        .add_default_plugins()
+        .add_startup_system(setup.system())
+        .add_system(animate_sprite_system.system())
+        .add_system(update_animation_res.system())
+        .add_system(keyboard_input_system.system())
+        .run();
+}
+```
